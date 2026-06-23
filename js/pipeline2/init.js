@@ -1,0 +1,183 @@
+'use strict';
+
+function toggleFOCUSMode(forceState) {
+  const nextState = typeof forceState === 'boolean'
+    ? forceState
+    : !document.body.classList.contains('FOCUS-mode');
+  document.body.classList.toggle('FOCUS-mode', nextState);
+  localStorage.setItem('FOCUSMode', String(nextState));
+}
+window.toggleFOCUSMode = toggleFOCUSMode;
+
+/* ══════════════════════════════════════════════════════
+   DOM LIFECYCLE EVENT LISTENERS & HOOKS
+══════════════════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded', () => {
+
+  loadAndRenderSlugs();
+  initBibleKeyboard(); // <-- Add this single line here
+  hideBibleKeyboard();
+  if (localStorage.getItem('FOCUSMode') === 'true') document.body.classList.add('FOCUS-mode');
+  let lastHeaderTap = 0;
+  const pageHeader = document.querySelector('header');
+  if (pageHeader) {
+    pageHeader.addEventListener('dblclick', () => toggleFOCUSMode());
+    pageHeader.addEventListener('touchend', () => {
+      const now = Date.now();
+      if (now - lastHeaderTap < 320) toggleFOCUSMode();
+      lastHeaderTap = now;
+    }, { passive: true });
+  }
+  document.addEventListener('keydown', event => {
+    if (event.key && event.key.toLowerCase() === 'g' && !event.metaKey && !event.ctrlKey && !event.altKey) toggleFOCUSMode();
+  });
+  if (typeof renderReadMonth === 'function') renderReadMonth();
+  document.addEventListener('click', event => {
+    const delegatedVerseTap = event.target.closest('[data-verse]');
+    if (!delegatedVerseTap) return;
+    event.preventDefault();
+    if (typeof playVerse === 'function') playVerse(delegatedVerseTap.dataset.verse);
+  });
+
+  function toggleControlPanel(forceCollapse) {
+    const panel   = document.querySelector('.left-col .panel');
+    const leftCol = document.querySelector('.left-col');
+    const btn     = document.getElementById('btn-collapse');
+    const gearBtn = document.getElementById('drawer-toggle');
+    const collapse = forceCollapse ?? !(panel && panel.classList.contains('collapsed'));
+    if (panel) panel.classList.toggle('collapsed', collapse);
+    if (btn) btn.textContent = collapse ? '>>>' : '<<<';
+    // Drive drawer: hide left-col during playback, show on pause/stop
+    if (leftCol) leftCol.classList.toggle('drawer-hidden', !!collapse);
+    if (gearBtn) gearBtn.classList.toggle('visible', !!collapse);
+    document.body.classList.toggle('playing', !!collapse);
+  }
+  window.toggleControlPanel = toggleControlPanel;
+
+  function bindClick(id, handler) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', handler);
+    return el;
+  }
+
+  const btnClear = bindClick('btn-clear', clearLog);
+  const btnHelp = bindClick('btn-help', () => {
+    const panel = document.getElementById('log-panel');
+    if (panel) panel.classList.toggle('log-visible');
+  });
+  const btnStop = bindClick('btn-stop', () => {
+    currentZapSessionId++;
+    if (currentAudio) { try { currentAudio.pause(); } catch(e) {} currentAudio = null; }
+    clearTimeout(_slideTimerTimeout);
+    if (slideWaitResolve) { slideWaitResolve('stop'); slideWaitResolve = null; }
+    if (bgMusic) { bgMusic.pause(); bgMusic = null; }
+    resetRunUI();
+    addLog('Stop requested by user', 'warn');
+  });
+
+  bindClick('btn-playpause', () => {
+    const btn = document.getElementById('btn-playpause');
+    if (isPaused) {
+      isPaused = false;
+      btn.textContent = '⏸'; btn.title = 'Pause'; btn.classList.remove('t-on');
+      if (currentAudio) currentAudio.play().catch(() => {});
+      if (slideWaitResolve) { slideWaitResolve('resume'); slideWaitResolve = null; }
+    } else {
+      isPaused = true;
+      btn.textContent = '▶'; btn.title = 'Resume'; btn.classList.add('t-on');
+      if (currentAudio) currentAudio.pause();
+      clearTimeout(_slideTimerTimeout);
+      stopSlideTimer();
+    }
+  });
+
+  bindClick('btn-next', () => {
+    skipSignal = 'next';
+    isPaused   = false;
+    const pp = document.getElementById('btn-playpause');
+    if (pp) { pp.textContent = '⏸'; pp.title = 'Pause'; pp.classList.remove('t-on'); }
+    if (currentAudio) { try { currentAudio.pause(); } catch(e) {} currentAudio = null; }
+    clearTimeout(_slideTimerTimeout);
+    if (slideWaitResolve) { slideWaitResolve('next'); slideWaitResolve = null; }
+  });
+
+  bindClick('btn-prev', () => {
+    skipSignal = 'prev';
+    isPaused   = false;
+    const pp = document.getElementById('btn-playpause');
+    if (pp) { pp.textContent = '⏸'; pp.title = 'Pause'; pp.classList.remove('t-on'); }
+    if (currentAudio) { try { currentAudio.pause(); } catch(e) {} currentAudio = null; }
+    clearTimeout(_slideTimerTimeout);
+    if (slideWaitResolve) { slideWaitResolve('prev'); slideWaitResolve = null; }
+  });
+
+  bindClick('btn-channel-swap', () => {
+    toggleControlPanel(false);
+    document.querySelectorAll('.slug-btn').forEach(b => b.disabled = false);
+  });
+
+  bindClick('btn-bible-keyboard', () => {
+    showBibleKeyboard();
+  });
+
+  bindClick('btn-mute', () => {
+    isMuted = !isMuted;
+    const btn = document.getElementById('btn-mute');
+    btn.textContent = isMuted ? '🔈' : '🔇';
+    btn.title       = isMuted ? 'Unmute' : 'Mute';
+    btn.classList.toggle('t-on', isMuted);
+    if (currentAudio) currentAudio.muted = isMuted;
+    if (bgMusic) bgMusic.muted = isMuted;
+    addLog(isMuted ? '🔇 Muted' : '🔊 Unmuted', 'dim');
+  });
+
+  bindClick('btn-vol-down', () => setVolume(currentVolume - 0.1));
+  bindClick('btn-vol-up', () => setVolume(currentVolume + 0.1));
+
+ // Manual lookup  
+const lookupBtn = document.getElementById('btn-lookup');
+if (lookupBtn) lookupBtn.addEventListener('click', async () => {
+    const book = document.getElementById('ml-book').value.trim();
+    const ch   = parseInt(document.getElementById('ml-ch').value) || 1;
+    const vs   = parseInt(document.getElementById('ml-vs').value) || 1;
+    if (!book) { addLog('⚠ Enter a book name for lookup', 'warn'); return; }
+
+    addLog(`🔍 Manual: ${book} ${ch}:${vs}`, 'info');
+    const activeVersion = 'LSG';
+    const jsonPath      = '/data/bibles/lsg.json';
+
+    let bibleData;
+    try { bibleData = await fetchJSON(jsonPath); }
+    catch(e) { addLog('❌ Cannot load Bible for lookup', 'err'); return; }
+
+    const displayBook = (activeVersion === 'LSG') ? (EN_TO_FR_BOOK[book] || book) : book;
+    const ref    = `${displayBook} ${ch}:${vs}`;
+    const verses = extractVerses(bibleData, ch, vs, ch, vs, book);
+    const text   = verses.map(v => v.text).join(' ');
+    if (verses.length > 0) {
+      const r = { book, bible_version: activeVersion, chapter_start: ch, verse_start: vs };
+      await Promise.all([
+        playVoiceFromCdn(r, verses),
+        showVerseBlocks(ref, text || '(Verse not found)', activeVersion, jsonPath)
+      ]);
+    } else {
+      await showVerseBlocks(ref, '(Verse not found)', activeVersion, jsonPath);
+    }
+  });
+
+  // Step 4 — tap verse-card to show/hide transport bar
+  const verseCard = document.getElementById('verse-card');
+  if (verseCard) {
+    verseCard.addEventListener('click', () => {
+      const bar = document.getElementById('transport-bar');
+      if (bar) bar.classList.toggle('transport-visible');
+    });
+  }
+
+  renderAlarmList();
+
+  if ('speechSynthesis' in window) {
+    speechSynthesis.getVoices();
+    speechSynthesis.addEventListener('voiceschanged', () => speechSynthesis.getVoices());
+  }
+});

@@ -1,0 +1,1967 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#2e2a1e">
+<title>LSG SelahPoint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root {
+  --bg:         #0f0d0a;
+  --surface:    #1a1710;
+  --surface2:   #201d14;
+  --border:     #2e2a1e;
+  --gold:       #c9a84c;
+  --gold-dim:   #6b5828;
+  --gold-glow:  rgba(201,168,76,.18);
+  --text:       #ede4cc;
+  --muted:      #6e6550;
+  --green:      #5aaa7e;
+  --red:        #c05050;
+  --orange:     #c07840;
+  --mono:       'JetBrains Mono', monospace;
+  --serif:      'Cormorant Garamond', Georgia, serif;
+  --display:    'Cinzel', serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--serif);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── NOISE TEXTURE OVERLAY ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: .5;
+}
+
+/* ── GOLD RADIAL VIGNETTE ── */
+body::after {
+  content: '';
+  position: fixed;
+  top: -30%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80vw;
+  height: 60vh;
+  background: radial-gradient(ellipse, rgba(201,168,76,.04) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ══════════════════════════════
+   HEADER
+══════════════════════════════ */
+header {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.2rem 2rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(15,13,10,.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  gap: .1rem;
+}
+.brand-name {
+  font-family: var(--display);
+  font-size: 1.55rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 3px;
+  line-height: 1;
+}
+.brand-sub {
+  font-family: var(--mono);
+  font-size: .6rem;
+  color: var(--muted);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+#qr-container {
+  background: #fff;
+  padding: 4px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  cursor: pointer;
+  title: "Scan to open on your phone";
+}
+#qr-container canvas, #qr-container img { display: block; }
+
+/* ══════════════════════════════
+   SPONSOR BANNER
+══════════════════════════════ */
+#sponsor-banner {
+  position: relative;
+  z-index: 9;
+  text-align: center;
+  padding: .5rem 2rem;
+  background: linear-gradient(90deg, transparent, rgba(201,168,76,.06), transparent);
+  border-bottom: 1px solid rgba(201,168,76,.12);
+  font-family: var(--mono);
+  font-size: .65rem;
+  color: var(--muted);
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: color .2s;
+}
+#sponsor-banner:hover { color: var(--gold); }
+#sponsor-banner strong { color: var(--gold); font-weight: 500; }
+
+/* ══════════════════════════════
+   MAIN LAYOUT
+══════════════════════════════ */
+.app-shell {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  min-height: calc(100vh - 90px);
+}
+@media(max-width: 900px) {
+  .app-shell { grid-template-columns: 1fr; }
+  .sidebar { display: none !important; }
+  .sidebar.open {
+    display: flex !important;
+    flex-direction: column !important;
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    overflow: hidden; /* let inner div scroll, not the sidebar itself */
+    padding-bottom: 5rem; /* clear mobile bottom bar */
+  }
+}
+
+/* ══════════════════════════════
+   SIDEBAR / CONTROLS
+══════════════════════════════ */
+.sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 1.5rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.panel-title {
+  font-family: var(--display);
+  font-size: .8rem;
+  color: var(--gold);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: .9rem;
+  padding-bottom: .45rem;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Prayer */
+.prayer-row {
+  display: flex;
+  gap: .4rem;
+  margin-bottom: .5rem;
+}
+.prayer-row input {
+  flex: 1;
+  background: rgba(0,0,0,.25);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: .45rem .6rem;
+  font-family: var(--mono);
+  font-size: .78rem;
+  border-radius: 4px;
+  min-width: 0;
+}
+.prayer-row input:focus { outline: none; border-color: var(--gold); }
+input[type="time"] { color-scheme: dark; }
+
+.alarm-list { margin-top: .4rem; }
+.alarm-row {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .3rem .2rem;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  font-family: var(--mono);
+  font-size: .72rem;
+}
+.alarm-row .al-t { color: var(--gold); width: 3rem; flex-shrink: 0; }
+.alarm-row .al-l { flex: 1; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alarm-del {
+  background: transparent;
+  border: 1px solid var(--red);
+  color: var(--red);
+  width: 1.4rem; height: 1.4rem;
+  border-radius: 3px;
+  font-size: .65rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-family: var(--mono);
+  transition: background .15s;
+}
+.alarm-del:hover { background: rgba(192,76,76,.15); }
+
+.alarm-hint {
+  font-family: var(--mono);
+  font-size: .62rem;
+  color: var(--muted);
+  margin-top: .4rem;
+  line-height: 1.5;
+}
+
+/* Sidebar buttons */
+.side-btn {
+  width: 100%;
+  background: rgba(0,0,0,.2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: .6rem;
+  font-family: var(--display);
+  font-size: .72rem;
+  letter-spacing: 1px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all .2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  margin-bottom: .5rem;
+}
+.side-btn:hover { border-color: var(--gold); background: var(--gold-glow); color: var(--gold); }
+.side-btn.primary { background: var(--gold-dim); border-color: var(--gold); color: var(--gold); }
+.side-btn.primary:hover { background: var(--gold); color: var(--bg); }
+
+/* ══════════════════════════════
+   MAIN CONTENT AREA
+══════════════════════════════ */
+.content-area {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 900px;
+}
+@media(max-width: 768px) {
+  .content-area { padding: 1rem; }
+}
+
+/* ── VOTD CARD ── */
+#votd-card {
+  background: linear-gradient(135deg, rgba(201,168,76,.06), rgba(201,168,76,.02));
+  border: 1px solid rgba(201,168,76,.3);
+  border-radius: 10px;
+  padding: 2rem 2rem 1.5rem;
+  position: relative;
+  overflow: hidden;
+  animation: fadeUp .7s ease forwards;
+}
+#votd-card::before {
+  content: '\201C';
+  position: absolute;
+  top: -.5rem;
+  left: .8rem;
+  font-family: var(--serif);
+  font-size: 8rem;
+  color: rgba(201,168,76,.07);
+  line-height: 1;
+  pointer-events: none;
+}
+.votd-label {
+  font-family: var(--mono);
+  font-size: .62rem;
+  color: var(--gold);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+  opacity: .8;
+}
+#votd-text {
+  font-size: 1.6rem;
+  line-height: 1.5;
+  font-style: italic;
+  font-weight: 300;
+  color: var(--text);
+  margin-bottom: 1.2rem;
+}
+#votd-ref {
+  font-family: var(--display);
+  font-size: 1rem;
+  color: var(--gold);
+  letter-spacing: 1px;
+}
+
+@media(max-width: 600px) {
+  #votd-text { font-size: 1.2rem; }
+}
+
+/* ── AUDIO BAR (shown when verse loaded) ── */
+#audio-bar {
+  display: none;
+  align-items: center;
+  gap: .6rem;
+  background: rgba(0,0,0,.35);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: .55rem 1rem;
+  margin-top: .8rem;
+  flex-wrap: wrap;
+}
+#audio-bar.visible { display: flex; }
+#audio-np {
+  font-family: var(--mono);
+  font-size: .72rem;
+  color: var(--gold);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.a-btn {
+  background: rgba(0,0,0,.3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 2.2rem; height: 2.2rem;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+  flex-shrink: 0;
+}
+.a-btn:hover { background: var(--gold-dim); border-color: var(--gold); color: var(--gold); }
+.a-btn.on { background: var(--gold-dim); border-color: var(--gold); color: var(--gold); }
+#vol-label { font-family: var(--mono); font-size: .65rem; color: var(--muted); width: 2.2rem; text-align: center; }
+
+/* ── DISPLAY CARD ── */
+#display-card {
+  display: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 2rem;
+  animation: fadeUp .5s ease forwards;
+}
+#display-card.visible { display: block; }
+
+#disp-ref {
+  font-family: var(--display);
+  font-size: 1.4rem;
+  color: var(--gold);
+  letter-spacing: 1px;
+  margin-bottom: 1.5rem;
+}
+#disp-body {
+  font-size: 1.6rem;
+  line-height: 1.65;
+  font-style: italic;
+  font-weight: 300;
+  color: var(--text);
+}
+/* Chapter / book mode: smaller verse text */
+#disp-body.multiverse {
+  font-size: 1rem;
+  line-height: 1.9;
+  font-style: normal;
+}
+#disp-body .verse-num {
+  font-family: var(--mono);
+  font-size: .65rem;
+  color: var(--gold);
+  vertical-align: super;
+  margin-right: .25rem;
+  opacity: .7;
+}
+
+@media(max-width: 600px) {
+  #disp-body { font-size: 1.2rem; }
+  #disp-body.multiverse { font-size: .92rem; }
+}
+
+/* ══════════════════════════════
+   MOBILE BOTTOM BAR
+══════════════════════════════ */
+#mobile-bar {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(15,13,10,.96);
+  border-top: 1px solid var(--border);
+  padding: .6rem 1rem;
+  gap: .5rem;
+  z-index: 130;
+  backdrop-filter: blur(12px);
+}
+@media(max-width: 900px), (hover: none) and (pointer: coarse) { #mobile-bar { display: flex; } }
+.mob-btn {
+  flex: 1;
+  background: rgba(0,0,0,.3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: .55rem .3rem;
+  font-family: var(--display);
+  font-size: .6rem;
+  letter-spacing: .5px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all .15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .15rem;
+}
+.mob-btn .icon { font-size: 1.1rem; }
+.mob-btn:hover, .mob-btn.active { border-color: var(--gold); color: var(--gold); background: var(--gold-glow); }
+
+/* ══════════════════════════════
+   BIBLE KEYBOARD MODAL
+══════════════════════════════ */
+#kb-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.75);
+  backdrop-filter: blur(6px);
+  z-index: 200;
+  align-items: flex-end;
+  justify-content: center;
+}
+#kb-modal.open { display: flex; }
+
+#kb-sheet {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 14px 14px 0 0;
+  width: 100%;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 1.2rem 1.2rem 2rem;
+  animation: sheetUp .3s cubic-bezier(.4,0,.2,1) forwards;
+}
+@keyframes sheetUp { from{ transform: translateY(100%) } to{ transform: translateY(0) } }
+
+.kb-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: .7rem;
+}
+.kb-crumbs {
+  font-family: var(--display);
+  font-size: 1rem;
+  color: var(--gold);
+  letter-spacing: 1px;
+}
+.kb-close {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 1.5rem;
+  cursor: pointer;
+  line-height: 1;
+}
+.kb-close:hover { color: var(--red); }
+
+#kb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: .4rem;
+  margin-bottom: .8rem;
+}
+.kb-btn {
+  background: rgba(0,0,0,.3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: .55rem .3rem;
+  font-family: var(--mono);
+  font-size: .78rem;
+  text-align: center;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all .15s;
+  user-select: none;
+}
+.kb-btn:hover { border-color: var(--gold); color: var(--gold); background: var(--gold-glow); }
+.kb-btn.sel { background: var(--gold); color: var(--bg); border-color: #fff; font-weight: bold; }
+
+/* Number pad */
+#num-pad { display: grid; grid-template-columns: repeat(4, 1fr); gap: .4rem; }
+.num-btn {
+  background: rgba(0,0,0,.3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: .7rem;
+  font-family: var(--mono);
+  font-size: 1rem;
+  text-align: center;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all .15s;
+  user-select: none;
+}
+.num-btn:hover { border-color: var(--gold); background: var(--gold-glow); }
+.num-btn.del { color: var(--red); }
+.num-btn.confirm { color: var(--green); font-size: .9rem; }
+#num-preview {
+  font-family: var(--mono);
+  font-size: 2rem;
+  color: var(--gold);
+  text-align: center;
+  background: rgba(0,0,0,.25);
+  border-radius: 6px;
+  padding: .6rem;
+  margin-bottom: .8rem;
+  min-height: 3.2rem;
+  letter-spacing: 4px;
+}
+
+/* Display mode buttons */
+#mode-bar {
+  display: flex;
+  gap: .5rem;
+  flex-wrap: wrap;
+  margin-top: .8rem;
+}
+.mode-btn {
+  flex: 1;
+  min-width: 90px;
+  background: rgba(0,0,0,.25);
+  border: 1px solid rgba(201,168,76,.35);
+  color: var(--gold);
+  padding: .55rem .4rem;
+  font-family: var(--display);
+  font-size: .68rem;
+  letter-spacing: .5px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all .15s;
+  text-align: center;
+}
+.mode-btn:hover { background: var(--gold); color: var(--bg); }
+
+/* ══════════════════════════════
+   SPONSOR MODAL
+══════════════════════════════ */
+#sponsor-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.85);
+  backdrop-filter: blur(8px);
+  z-index: 300;
+  align-items: center;
+  justify-content: center;
+}
+#sponsor-modal.open { display: flex; }
+#sponsor-card {
+  background: var(--surface2);
+  border: 1px solid rgba(201,168,76,.25);
+  border-radius: 14px;
+  padding: 3rem 3.5rem;
+  text-align: center;
+  max-width: 480px;
+  width: 90%;
+  animation: fadeUp .4s ease forwards;
+  position: relative;
+}
+.sp-logo {
+  font-family: var(--display);
+  font-size: .7rem;
+  color: var(--muted);
+  letter-spacing: 4px;
+  margin-bottom: 1rem;
+}
+.sp-tagline {
+  font-family: var(--serif);
+  font-size: 2.2rem;
+  font-style: italic;
+  font-weight: 300;
+  color: var(--text);
+  line-height: 1.3;
+  margin-bottom: 2rem;
+}
+.sp-name {
+  font-family: var(--display);
+  font-size: 1.4rem;
+  color: var(--gold);
+  letter-spacing: 3px;
+  margin-bottom: .5rem;
+}
+.sp-sub {
+  font-family: var(--mono);
+  font-size: .7rem;
+  color: var(--muted);
+  letter-spacing: 1px;
+}
+.sp-close {
+  position: absolute;
+  top: 1rem; right: 1rem;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 1.4rem;
+  cursor: pointer;
+}
+.sp-close:hover { color: var(--gold); }
+
+/* ══════════════════════════════
+   PRAYER ALERT
+══════════════════════════════ */
+@keyframes borderPulse { 0%,100%{opacity:1} 50%{opacity:.2} }
+#prayer-alert {
+  display: none;
+  position: fixed; inset: 0;
+  border: 4px solid var(--orange);
+  z-index: 998; pointer-events: none;
+  animation: borderPulse 1.6s ease-in-out infinite;
+}
+#prayer-banner {
+  display: none;
+  position: fixed;
+  top: 1rem; left: 50%; transform: translateX(-50%);
+  background: var(--orange);
+  color: var(--bg);
+  font-family: var(--display);
+  font-size: 1.3rem;
+  font-weight: 600;
+  padding: .6rem 2rem;
+  border-radius: 6px;
+  z-index: 999;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 4px 20px rgba(0,0,0,.5);
+}
+
+/* ══════════════════════════════
+   ANIMATIONS
+══════════════════════════════ */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ══════════════════════════════
+   LOADING STATE
+══════════════════════════════ */
+#loading-dot {
+  display: inline-block;
+  width: .55rem; height: .55rem;
+  background: var(--gold);
+  border-radius: 50%;
+  animation: blink 1.2s ease-in-out infinite;
+  margin-left: .4rem;
+  vertical-align: middle;
+  border: 0;
+  background: transparent;
+  padding: 0 .15rem;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.1} }
+
+/* Teen reading upgrades */
+body.FOCUS-mode header,
+body.FOCUS-mode #sponsor-banner,
+body.FOCUS-mode .sidebar,
+body.FOCUS-mode #mobile-bar,
+body.FOCUS-mode #audio-bar,
+body.FOCUS-mode #kb-modal,
+body.FOCUS-mode #prayer-alert,
+body.FOCUS-mode #prayer-banner,
+body.FOCUS-mode .menu-btn,
+body.FOCUS-mode .audio-controls {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity .3s ease;
+}
+body.FOCUS-mode .app-shell { grid-template-columns: 1fr !important; }
+body.FOCUS-mode .content-area {
+  max-width: 760px;
+  margin: 5vh auto 0;
+  padding-bottom: 5rem;
+  transition: margin .3s ease;
+}
+body.FOCUS-mode #display-card.visible,
+body.FOCUS-mode #votd-card {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+#focus-return {
+  display: none;
+  position: fixed;
+  right: .8rem;
+  bottom: .8rem;
+  z-index: 260;
+  border: 1px solid rgba(201,168,76,.45);
+  background: rgba(15,13,10,.92);
+  color: var(--gold);
+  font-family: var(--mono);
+  font-size: .7rem;
+  padding: .55rem .7rem;
+  border-radius: 4px;
+}
+body.FOCUS-mode #focus-return { display: block; }
+.tap-verse {
+  cursor: pointer;
+  display: inline;
+  touch-action: manipulation;
+}
+.audio-icon {
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 12px;
+  line-height: 1;
+  margin-left: .35rem;
+  min-width: 12px;
+  vertical-align: middle;
+  border: 0;
+  background: transparent;
+  padding: 0 .15rem;
+}
+.audio-icon.playing { color: #3B82F6; }
+#read-month {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  margin: .4rem 0 4.6rem;
+  text-align: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  body.FOCUS-mode *,
+  #focus-return,
+  .tap-verse,
+  .audio-icon { transition: none !important; animation: none !important; }
+}
+/* scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: rgba(0,0,0,.2); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gold-dim); }
+</style>
+</head>
+<body>
+<button id="focus-return" type="button" onclick="toggleFOCUSMode(false)">Show Controls</button>
+
+<!-- HEADER -->
+<header>
+  <div class="brand">
+    <div class="brand-name">LSG SelahPoint</div>
+    <div class="brand-sub">LSG - Louis Segond</div>
+  </div>
+  <div id="qr-container" title="Scan to open on your phone" onclick="document.getElementById('qr-container').style.display='none'"></div>
+</header>
+
+<!-- SPONSOR BANNER -->
+<div id="sponsor-banner" onclick="openSponsor()">
+  Bible brought to you by <strong id="sponsor-name-inline">Your Organization</strong> &nbsp;·&nbsp; tap to learn more
+</div>
+
+<!-- PRAYER OVERLAY -->
+<div id="prayer-alert"></div>
+<div id="prayer-banner"></div>
+
+<!-- APP SHELL -->
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <!-- Close button — only visible on mobile overlay -->
+    <div id="sidebar-close-row" style="display:none;justify-content:space-between;align-items:center;padding-bottom:.8rem;border-bottom:1px solid var(--border);margin-bottom:.5rem;">
+      <span style="font-family:var(--display);font-size:.8rem;color:var(--gold);letter-spacing:2px;">CONTROLS</span>
+      <button onclick="toggleSidebar()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-size:1.2rem;width:2rem;height:2rem;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;">×</button>
+    </div>
+
+    <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:1.5rem;min-height:0;">
+      <div>
+        <div class="panel-title">🙏 Prayer Alarms</div>
+        <div class="prayer-row">
+          <input type="time" id="inp-pt" aria-label="Prayer time" />
+          <input type="text" id="inp-pl" placeholder="Label" aria-label="Prayer label" style="flex:1.4;" />
+        </div>
+
+        <div class="alarm-list" id="alarm-list"></div>
+        <p class="alarm-hint">Voice reminder 2 min before · orange border at alarm time (3 min)</p>
+      </div>
+	  <!-- after the alarm-list and before the organisation button -->
+<div style="margin-top: 0.5rem;">
+  <button class="side-btn" onclick="openKb()" style="gap: 0.6rem;">
+    <span style="font-size: 1.1rem;">📖</span> Open Bible Keyboard
+  </button>
+</div>
+
+    </div>
+
+    <div style="padding-top:.8rem;border-top:1px solid var(--border);margin-top:.5rem;flex-shrink:0;">
+            <button class="side-btn" onclick="location.href='about-selahpoint.html'" style="opacity:.75;">About SelahPoint</button>
+      <button class="side-btn" onclick="location.href='about-sponsor.html'" style="opacity:.75;">About the Sponsor</button>
+    </div>
+  </aside>
+
+  <!-- CONTENT -->
+  <main class="content-area" id="content">
+
+    <!-- VERSET DU JOUR -->
+    <div id="votd-card">
+      <div class="votd-label">✦ Verset du jour</div>
+      <div id="votd-text">Chargement<span id="loading-dot"></span></div>
+      <div id="votd-ref"></div>
+      <div id="audio-bar">
+        <span id="audio-np">—</span>
+        <button class="a-btn" id="btn-play" title="Play" onclick="audioPlay()">▶</button>
+        <button class="a-btn" id="btn-pause" title="Pause" onclick="audioPause()" style="display:none;">⏸</button>
+        <button class="a-btn" id="btn-stop-audio" title="Stop" onclick="audioStop()">⏹</button>
+        <div class="t-sep" style="width:1px;height:1.4rem;background:var(--border);flex-shrink:0;margin:0 .1rem;"></div>
+        <button class="a-btn" id="btn-vol-d" title="Vol -" onclick="volChange(-10)">🔉</button>
+        <span id="vol-label">70%</span>
+        <button class="a-btn" id="btn-vol-u" title="Vol +" onclick="volChange(10)">🔊</button>
+        <button class="a-btn" id="btn-mute" title="Mute" onclick="audioMute()">🔇</button>
+      </div>
+    </div>
+
+    <!-- DISPLAY CARD (Bible Keyboard result) -->
+    <div id="display-card">
+      <div id="disp-ref">—</div>
+      <div id="disp-body">—</div>
+      <div id="audio-bar-disp" style="margin-top:1rem;"></div>
+    </div>
+    <div id="read-month">Read this month: 0/30</div>
+
+  </main>
+</div>
+
+<!-- MOBILE BOTTOM BAR -->
+<div id="mobile-bar">
+  <button class="mob-btn" onclick="openKb()"><span class="icon">📖</span>Bible</button>
+  <button class="mob-btn" id="mob-audio-btn" onclick="audioPlay()"><span class="icon">🔊</span>Audio</button>
+  <button class="mob-btn" id="mob-alarm-btn" onclick="mobileAddAlarm()"><span class="icon">＋</span>Alarm</button>
+  <button class="mob-btn" id="mob-controls-btn" onclick="toggleSidebar()"><span class="icon">⚙</span>Controls</button>
+  <button class="mob-btn" onclick="openSponsor()"><span class="icon">✦</span>Sponsor</button>
+</div>
+
+<!-- BIBLE KEYBOARD MODAL (bottom sheet) -->
+<div id="kb-modal" onclick="handleKbOutside(event)">
+  <div id="kb-sheet">
+    <div class="kb-header">
+      <span class="kb-crumbs" id="kb-crumbs">📚 Select Book</span>
+      <button class="kb-close" onclick="closeKb()">×</button>
+    </div>
+    <div id="kb-grid"></div>
+    <div id="num-preview" style="display:none;"></div>
+    <div id="num-pad" style="display:none;"></div>
+    <div id="mode-bar" style="display:none;"></div>
+  </div>
+</div>
+
+<!-- SPONSOR MODAL -->
+<div id="sponsor-modal" onclick="handleSpOutside(event)">
+  <div id="sponsor-card">
+    <button class="sp-close" onclick="closeSponsor()">×</button>
+    <div class="sp-logo">PROUDLY PRESENTED BY</div>
+    <div class="sp-tagline">"Thy word is a lamp unto my feet, and a light unto my path."</div>
+    <div class="sp-name" id="sponsor-fullname">Your Organization Name</div>
+    <div class="sp-sub" id="sponsor-tagline">Serving the community since —</div>
+  </div>
+</div>
+
+<!-- Pipeline2 modules (audio engine) -->
+<script src="js/pipeline2/state.js?v=20260623-phone1"></script>
+<script src="js/pipeline2/utils.js?v=20260623-phone1"></script>
+<script src="js/pipeline2/maps.js?v=20260623-phone1"></script>
+<script src="js/pipeline2/alarms.js?v=20260623-phone1"></script>
+<script src="js/pipeline2/interceptors.js?v=20260623-phone1"></script>
+<script src="js/pipeline2/engine.js?v=20260623-phone1"></script>
+<script src="js/pipeline2/init.js?v=20260623-phone1"></script>
+
+<script>
+'use strict';
+
+/* ══════════════════════════════════════════════
+   CONFIG — edit these for each deployment
+══════════════════════════════════════════════ */
+const SP_CONFIG = {
+  sponsorName:    'Your Organization',
+  sponsorTagline: 'Serving the community since —',
+  apiBase:        '',          // e.g. '' = same origin
+  bibleVersion:   'LSG',
+};
+window.SC_FORCE_LANG = 'LSG';
+
+/* ══════════════════════════════════════════════
+   CLOCK
+══════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════
+   QR CODE (points to current URL)
+══════════════════════════════════════════════ */
+(function buildQR() {
+  try {
+    new QRCode(document.getElementById('qr-container'), {
+      text:   window.location.href,
+      width:  56,
+      height: 56,
+      colorDark:  '#000000',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  } catch(e) { document.getElementById('qr-container').style.display = 'none'; }
+})();
+
+/* ══════════════════════════════════════════════
+   SPONSOR
+══════════════════════════════════════════════ */
+document.getElementById('sponsor-name-inline').textContent = SP_CONFIG.sponsorName;
+document.getElementById('sponsor-fullname').textContent    = SP_CONFIG.sponsorName;
+document.getElementById('sponsor-tagline').textContent     = SP_CONFIG.sponsorTagline;
+
+function openSponsor()  { document.getElementById('sponsor-modal').classList.add('open'); }
+function closeSponsor() { document.getElementById('sponsor-modal').classList.remove('open'); }
+function handleSpOutside(e) { if (e.target.id === 'sponsor-modal') closeSponsor(); }
+
+/* ══════════════════════════════════════════════
+   VERSET DU JOUR
+   References quotidiennes chargees depuis la Bible LSG locale
+══════════════════════════════════════════════ */
+const VOTD_LIST = [
+  {
+    "ref": "Jean 3:16",
+    "text": "Car Dieu a tant aimé le monde qu'il a donné son Fils unique, afin que quiconque croit en lui ne périsse point, mais qu'il ait la vie éternelle.",
+    "book": "Jean",
+    "chapter": 3,
+    "verse": 16,
+    "verseEnd": 16,
+    "verses": [
+      {
+        "book": "Jean",
+        "chapter": 3,
+        "verse": 16,
+        "text": "Car Dieu a tant aimé le monde qu'il a donné son Fils unique, afin que quiconque croit en lui ne périsse point, mais qu'il ait la vie éternelle."
+      }
+    ]
+  },
+  {
+    "ref": "Romains 8:28",
+    "text": "Nous savons, du reste, que toutes choses concourent au bien de ceux qui aiment Dieu, de ceux qui sont appelés selon son dessein.",
+    "book": "Romains",
+    "chapter": 8,
+    "verse": 28,
+    "verseEnd": 28,
+    "verses": [
+      {
+        "book": "Romains",
+        "chapter": 8,
+        "verse": 28,
+        "text": "Nous savons, du reste, que toutes choses concourent au bien de ceux qui aiment Dieu, de ceux qui sont appelés selon son dessein."
+      }
+    ]
+  },
+  {
+    "ref": "1 Corinthiens 13:4",
+    "text": "La charité est patiente, elle est pleine de bonté; la charité n'est point envieuse; la charité ne se vante point, elle ne s'enfle point d'orgueil,",
+    "book": "1 Corinthiens",
+    "chapter": 13,
+    "verse": 4,
+    "verseEnd": 4,
+    "verses": [
+      {
+        "book": "1 Corinthiens",
+        "chapter": 13,
+        "verse": 4,
+        "text": "La charité est patiente, elle est pleine de bonté; la charité n'est point envieuse; la charité ne se vante point, elle ne s'enfle point d'orgueil,"
+      }
+    ]
+  },
+  {
+    "ref": "Psaume 23:1",
+    "text": "Cantique de David. L'Eternel est mon berger: je ne manquerai de rien.",
+    "book": "Psaume",
+    "chapter": 23,
+    "verse": 1,
+    "verseEnd": 1,
+    "verses": [
+      {
+        "book": "Psaume",
+        "chapter": 23,
+        "verse": 1,
+        "text": "Cantique de David. L'Eternel est mon berger: je ne manquerai de rien."
+      }
+    ]
+  },
+  {
+    "ref": "Ésaïe 40:31",
+    "text": "Mais ceux qui se confient en l'Eternel renouvellent leur force. Ils prennent le vol comme les aigles; Ils courent, et ne se lassent point, Ils marchent, et ne se fatiguent point.",
+    "book": "Ésaïe",
+    "chapter": 40,
+    "verse": 31,
+    "verseEnd": 31,
+    "verses": [
+      {
+        "book": "Ésaïe",
+        "chapter": 40,
+        "verse": 31,
+        "text": "Mais ceux qui se confient en l'Eternel renouvellent leur force. Ils prennent le vol comme les aigles; Ils courent, et ne se lassent point, Ils marchent, et ne se fatiguent point."
+      }
+    ]
+  },
+  {
+    "ref": "Jérémie 29:11",
+    "text": "Car je connais les projets que j'ai formés sur vous, dit l'Eternel, projets de paix et non de malheur, afin de vous donner un avenir et de l'espérance.",
+    "book": "Jérémie",
+    "chapter": 29,
+    "verse": 11,
+    "verseEnd": 11,
+    "verses": [
+      {
+        "book": "Jérémie",
+        "chapter": 29,
+        "verse": 11,
+        "text": "Car je connais les projets que j'ai formés sur vous, dit l'Eternel, projets de paix et non de malheur, afin de vous donner un avenir et de l'espérance."
+      }
+    ]
+  },
+  {
+    "ref": "Philippiens 4:13",
+    "text": "Je puis tout par celui qui me fortifie.",
+    "book": "Philippiens",
+    "chapter": 4,
+    "verse": 13,
+    "verseEnd": 13,
+    "verses": [
+      {
+        "book": "Philippiens",
+        "chapter": 4,
+        "verse": 13,
+        "text": "Je puis tout par celui qui me fortifie."
+      }
+    ]
+  },
+  {
+    "ref": "Proverbes 3:5-6",
+    "text": "Confie-toi en l'Eternel de tout ton coeur, Et ne t'appuie pas sur ta sagesse; Reconnais-le dans toutes tes voies, Et il aplanira tes sentiers.",
+    "book": "Proverbes",
+    "chapter": 3,
+    "verse": 5,
+    "verseEnd": 6,
+    "verses": [
+      {
+        "book": "Proverbes",
+        "chapter": 3,
+        "verse": 5,
+        "text": "Confie-toi en l'Eternel de tout ton coeur, Et ne t'appuie pas sur ta sagesse;"
+      },
+      {
+        "book": "Proverbes",
+        "chapter": 3,
+        "verse": 6,
+        "text": "Reconnais-le dans toutes tes voies, Et il aplanira tes sentiers."
+      }
+    ]
+  },
+  {
+    "ref": "Romains 5:8",
+    "text": "Mais Dieu prouve son amour envers nous, en ce que, lorsque nous étions encore des pécheurs, Christ est mort pour nous.",
+    "book": "Romains",
+    "chapter": 5,
+    "verse": 8,
+    "verseEnd": 8,
+    "verses": [
+      {
+        "book": "Romains",
+        "chapter": 5,
+        "verse": 8,
+        "text": "Mais Dieu prouve son amour envers nous, en ce que, lorsque nous étions encore des pécheurs, Christ est mort pour nous."
+      }
+    ]
+  },
+  {
+    "ref": "Éphésiens 2:8",
+    "text": "Car c'est par la grâce que vous êtes sauvés, par le moyen de la foi. Et cela ne vient pas de vous, c'est le don de Dieu.",
+    "book": "Éphésiens",
+    "chapter": 2,
+    "verse": 8,
+    "verseEnd": 8,
+    "verses": [
+      {
+        "book": "Éphésiens",
+        "chapter": 2,
+        "verse": 8,
+        "text": "Car c'est par la grâce que vous êtes sauvés, par le moyen de la foi. Et cela ne vient pas de vous, c'est le don de Dieu."
+      }
+    ]
+  },
+  {
+    "ref": "Psaume 46:1",
+    "text": "Au chef des chantres. Des fils de Koré. Sur alamoth. Cantique. Dieu est pour nous un refuge et un appui, Un secours qui ne manque jamais dans la détresse.",
+    "book": "Psaume",
+    "chapter": 46,
+    "verse": 1,
+    "verseEnd": 1,
+    "verses": [
+      {
+        "book": "Psaume",
+        "chapter": 46,
+        "verse": 1,
+        "text": "Au chef des chantres. Des fils de Koré. Sur alamoth. Cantique. Dieu est pour nous un refuge et un appui, Un secours qui ne manque jamais dans la détresse."
+      }
+    ]
+  },
+  {
+    "ref": "Matthieu 5:14",
+    "text": "Vous êtes la lumière du monde. Une ville située sur une montagne ne peut être cachée;",
+    "book": "Matthieu",
+    "chapter": 5,
+    "verse": 14,
+    "verseEnd": 14,
+    "verses": [
+      {
+        "book": "Matthieu",
+        "chapter": 5,
+        "verse": 14,
+        "text": "Vous êtes la lumière du monde. Une ville située sur une montagne ne peut être cachée;"
+      }
+    ]
+  },
+  {
+    "ref": "Jean 8:12",
+    "text": "Jésus leur parla de nouveau, et dit: Je suis la lumière du monde; celui qui me suit ne marchera pas dans les ténèbres, mais il aura la lumière de la vie.",
+    "book": "Jean",
+    "chapter": 8,
+    "verse": 12,
+    "verseEnd": 12,
+    "verses": [
+      {
+        "book": "Jean",
+        "chapter": 8,
+        "verse": 12,
+        "text": "Jésus leur parla de nouveau, et dit: Je suis la lumière du monde; celui qui me suit ne marchera pas dans les ténèbres, mais il aura la lumière de la vie."
+      }
+    ]
+  },
+  {
+    "ref": "1 Jean 4:19",
+    "text": "Pour nous, nous l'aimons, parce qu'il nous a aimés le premier.",
+    "book": "1 Jean",
+    "chapter": 4,
+    "verse": 19,
+    "verseEnd": 19,
+    "verses": [
+      {
+        "book": "1 Jean",
+        "chapter": 4,
+        "verse": 19,
+        "text": "Pour nous, nous l'aimons, parce qu'il nous a aimés le premier."
+      }
+    ]
+  },
+  {
+    "ref": "Michée 6:8",
+    "text": "On t'a fait connaître, ô homme, ce qui est bien; Et ce que l'Eternel demande de toi, C'est que tu pratiques la justice, Que tu aimes la miséricorde, Et que tu marches humblement avec ton Dieu.",
+    "book": "Michée",
+    "chapter": 6,
+    "verse": 8,
+    "verseEnd": 8,
+    "verses": [
+      {
+        "book": "Michée",
+        "chapter": 6,
+        "verse": 8,
+        "text": "On t'a fait connaître, ô homme, ce qui est bien; Et ce que l'Eternel demande de toi, C'est que tu pratiques la justice, Que tu aimes la miséricorde, Et que tu marches humblement avec ton Dieu."
+      }
+    ]
+  },
+  {
+    "ref": "Matthieu 6:33",
+    "text": "Cherchez premièrement le royaume et la justice de Dieu; et toutes ces choses vous seront données par-dessus.",
+    "book": "Matthieu",
+    "chapter": 6,
+    "verse": 33,
+    "verseEnd": 33,
+    "verses": [
+      {
+        "book": "Matthieu",
+        "chapter": 6,
+        "verse": 33,
+        "text": "Cherchez premièrement le royaume et la justice de Dieu; et toutes ces choses vous seront données par-dessus."
+      }
+    ]
+  },
+  {
+    "ref": "Ésaïe 41:10",
+    "text": "Ne crains rien, car je suis avec toi; Ne promène pas des regards inquiets, car je suis ton Dieu; Je te fortifie, je viens à ton secours, Je te soutiens de ma droite triomphante.",
+    "book": "Ésaïe",
+    "chapter": 41,
+    "verse": 10,
+    "verseEnd": 10,
+    "verses": [
+      {
+        "book": "Ésaïe",
+        "chapter": 41,
+        "verse": 10,
+        "text": "Ne crains rien, car je suis avec toi; Ne promène pas des regards inquiets, car je suis ton Dieu; Je te fortifie, je viens à ton secours, Je te soutiens de ma droite triomphante."
+      }
+    ]
+  },
+  {
+    "ref": "Lamentations 3:22-23",
+    "text": "Les bontés de l'Eternel ne sont pas épuisées, Ses compassions ne sont pas à leur terme; Elles se renouvellent chaque matin. Oh! que ta fidélité est grande!",
+    "book": "Lamentations",
+    "chapter": 3,
+    "verse": 22,
+    "verseEnd": 23,
+    "verses": [
+      {
+        "book": "Lamentations",
+        "chapter": 3,
+        "verse": 22,
+        "text": "Les bontés de l'Eternel ne sont pas épuisées, Ses compassions ne sont pas à leur terme;"
+      },
+      {
+        "book": "Lamentations",
+        "chapter": 3,
+        "verse": 23,
+        "text": "Elles se renouvellent chaque matin. Oh! que ta fidélité est grande!"
+      }
+    ]
+  },
+  {
+    "ref": "Romains 12:2",
+    "text": "Ne vous conformez pas au siècle présent, mais soyez transformés par le renouvellement de l'intelligence, afin que vous discerniez quelle est la volonté de Dieu, ce qui est bon, agréable et parfait.",
+    "book": "Romains",
+    "chapter": 12,
+    "verse": 2,
+    "verseEnd": 2,
+    "verses": [
+      {
+        "book": "Romains",
+        "chapter": 12,
+        "verse": 2,
+        "text": "Ne vous conformez pas au siècle présent, mais soyez transformés par le renouvellement de l'intelligence, afin que vous discerniez quelle est la volonté de Dieu, ce qui est bon, agréable et parfait."
+      }
+    ]
+  },
+  {
+    "ref": "2 Corinthiens 5:17",
+    "text": "Si quelqu'un est en Christ, il est une nouvelle créature. Les choses anciennes sont passées; voici, toutes choses sont devenues nouvelles.",
+    "book": "2 Corinthiens",
+    "chapter": 5,
+    "verse": 17,
+    "verseEnd": 17,
+    "verses": [
+      {
+        "book": "2 Corinthiens",
+        "chapter": 5,
+        "verse": 17,
+        "text": "Si quelqu'un est en Christ, il est une nouvelle créature. Les choses anciennes sont passées; voici, toutes choses sont devenues nouvelles."
+      }
+    ]
+  },
+  {
+    "ref": "Psaume 119:105",
+    "text": "Ta parole est une lampe à mes pieds, Et une lumière sur mon sentier.",
+    "book": "Psaume",
+    "chapter": 119,
+    "verse": 105,
+    "verseEnd": 105,
+    "verses": [
+      {
+        "book": "Psaume",
+        "chapter": 119,
+        "verse": 105,
+        "text": "Ta parole est une lampe à mes pieds, Et une lumière sur mon sentier."
+      }
+    ]
+  },
+  {
+    "ref": "Jean 14:6",
+    "text": "Jésus lui dit: Je suis le chemin, la vérité, et la vie. Nul ne vient au Père que par moi.",
+    "book": "Jean",
+    "chapter": 14,
+    "verse": 6,
+    "verseEnd": 6,
+    "verses": [
+      {
+        "book": "Jean",
+        "chapter": 14,
+        "verse": 6,
+        "text": "Jésus lui dit: Je suis le chemin, la vérité, et la vie. Nul ne vient au Père que par moi."
+      }
+    ]
+  },
+  {
+    "ref": "Colossiens 3:13",
+    "text": "Supportez-vous les uns les autres, et, si l'un a sujet de se plaindre de l'autre, pardonnez-vous réciproquement. De même que Christ vous a pardonné, pardonnez-vous aussi.",
+    "book": "Colossiens",
+    "chapter": 3,
+    "verse": 13,
+    "verseEnd": 13,
+    "verses": [
+      {
+        "book": "Colossiens",
+        "chapter": 3,
+        "verse": 13,
+        "text": "Supportez-vous les uns les autres, et, si l'un a sujet de se plaindre de l'autre, pardonnez-vous réciproquement. De même que Christ vous a pardonné, pardonnez-vous aussi."
+      }
+    ]
+  },
+  {
+    "ref": "Hébreux 11:1",
+    "text": "Or la foi est une ferme assurance des choses qu'on espère, une démonstration de celles qu'on ne voit pas.",
+    "book": "Hébreux",
+    "chapter": 11,
+    "verse": 1,
+    "verseEnd": 1,
+    "verses": [
+      {
+        "book": "Hébreux",
+        "chapter": 11,
+        "verse": 1,
+        "text": "Or la foi est une ferme assurance des choses qu'on espère, une démonstration de celles qu'on ne voit pas."
+      }
+    ]
+  },
+  {
+    "ref": "Jacques 1:17",
+    "text": "toute grâce excellente et tout don parfait descendent d'en haut, du Père des lumières, chez lequel il n'y a ni changement ni ombre de variation.",
+    "book": "Jacques",
+    "chapter": 1,
+    "verse": 17,
+    "verseEnd": 17,
+    "verses": [
+      {
+        "book": "Jacques",
+        "chapter": 1,
+        "verse": 17,
+        "text": "toute grâce excellente et tout don parfait descendent d'en haut, du Père des lumières, chez lequel il n'y a ni changement ni ombre de variation."
+      }
+    ]
+  },
+  {
+    "ref": "1 Pierre 5:7",
+    "text": "et déchargez-vous sur lui de tous vos soucis, car lui-même prend soin de vous.",
+    "book": "1 Pierre",
+    "chapter": 5,
+    "verse": 7,
+    "verseEnd": 7,
+    "verses": [
+      {
+        "book": "1 Pierre",
+        "chapter": 5,
+        "verse": 7,
+        "text": "et déchargez-vous sur lui de tous vos soucis, car lui-même prend soin de vous."
+      }
+    ]
+  },
+  {
+    "ref": "Psaume 27:1",
+    "text": "De David. L'Eternel est ma lumière et mon salut: De qui aurais-je crainte? L'Eternel est le soutien de ma vie: De qui aurais-je peur?",
+    "book": "Psaume",
+    "chapter": 27,
+    "verse": 1,
+    "verseEnd": 1,
+    "verses": [
+      {
+        "book": "Psaume",
+        "chapter": 27,
+        "verse": 1,
+        "text": "De David. L'Eternel est ma lumière et mon salut: De qui aurais-je crainte? L'Eternel est le soutien de ma vie: De qui aurais-je peur?"
+      }
+    ]
+  },
+  {
+    "ref": "Galates 5:22-23",
+    "text": "Mais le fruit de l'Esprit, c'est l'amour, la joie, la paix, la patience, la bonté, la bénignité, la fidélité, la douceur, la tempérance; la loi n'est pas contre ces choses.",
+    "book": "Galates",
+    "chapter": 5,
+    "verse": 22,
+    "verseEnd": 23,
+    "verses": [
+      {
+        "book": "Galates",
+        "chapter": 5,
+        "verse": 22,
+        "text": "Mais le fruit de l'Esprit, c'est l'amour, la joie, la paix, la patience, la bonté, la bénignité, la fidélité,"
+      },
+      {
+        "book": "Galates",
+        "chapter": 5,
+        "verse": 23,
+        "text": "la douceur, la tempérance; la loi n'est pas contre ces choses."
+      }
+    ]
+  },
+  {
+    "ref": "Matthieu 22:37-39",
+    "text": "Jésus lui répondit: Tu aimeras le Seigneur, ton Dieu, de tout ton coeur, de toute ton âme, et de toute ta pensée. C'est le premier et le plus grand commandement. Et voici le second, qui lui est semblable: Tu aimeras ton prochain comme toi-même.",
+    "book": "Matthieu",
+    "chapter": 22,
+    "verse": 37,
+    "verseEnd": 39,
+    "verses": [
+      {
+        "book": "Matthieu",
+        "chapter": 22,
+        "verse": 37,
+        "text": "Jésus lui répondit: Tu aimeras le Seigneur, ton Dieu, de tout ton coeur, de toute ton âme, et de toute ta pensée."
+      },
+      {
+        "book": "Matthieu",
+        "chapter": 22,
+        "verse": 38,
+        "text": "C'est le premier et le plus grand commandement."
+      },
+      {
+        "book": "Matthieu",
+        "chapter": 22,
+        "verse": 39,
+        "text": "Et voici le second, qui lui est semblable: Tu aimeras ton prochain comme toi-même."
+      }
+    ]
+  },
+  {
+    "ref": "Apocalypse 21:4",
+    "text": "Il essuiera toute larme de leurs yeux, et la mort ne sera plus, et il n'y aura plus ni deuil, ni cri, ni douleur, car les premières choses ont disparu.",
+    "book": "Apocalypse",
+    "chapter": 21,
+    "verse": 4,
+    "verseEnd": 4,
+    "verses": [
+      {
+        "book": "Apocalypse",
+        "chapter": 21,
+        "verse": 4,
+        "text": "Il essuiera toute larme de leurs yeux, et la mort ne sera plus, et il n'y aura plus ni deuil, ni cri, ni douleur, car les premières choses ont disparu."
+      }
+    ]
+  }
+];
+
+function loadVOTD() {
+  const textEl = document.getElementById('votd-text');
+  const refEl = document.getElementById('votd-ref');
+  const dot = document.getElementById('loading-dot');
+  if (dot) dot.remove();
+  if (!textEl || !refEl) return;
+  const day = new Date().getDate() + new Date().getMonth() * 31;
+  const verse = VOTD_LIST[day % VOTD_LIST.length];
+  textEl.textContent = verse.text;
+  refEl.textContent = verse.ref;
+  window._currentRef = verse.ref;
+  window._currentText = verse.text;
+  window._currentAudioVerses = verse.verses;
+  window._currentAudioRange = {
+    book: verse.book,
+    bible_version: 'LSG',
+    chapter_start: verse.chapter,
+    verse_start: verse.verse,
+    chapter_end: verse.chapter,
+    verse_end: verse.verseEnd
+  };
+  const np = document.getElementById('audio-np');
+  if (np) np.textContent = '\u266A ' + verse.ref;
+}
+loadVOTD();
+
+/* ══════════════════════════════════════════════
+   AUDIO BAR TOGGLE
+══════════════════════════════════════════════ */
+let _audioBarVisible = false;
+function toggleAudioBar() {
+  audioPlay();
+}
+function setAudioButtons(isPlaying) {
+  const playBtn = document.getElementById('btn-play');
+  const pauseBtn = document.getElementById('btn-pause');
+  const np = document.getElementById('audio-np');
+  const mobileBtn = document.getElementById('mob-audio-btn');
+  if (playBtn) playBtn.style.display = isPlaying ? 'none' : '';
+  if (pauseBtn) pauseBtn.style.display = isPlaying ? '' : 'none';
+  if (np && window._currentRef) np.textContent = '♪ ' + window._currentRef;
+  if (mobileBtn) mobileBtn.classList.toggle('active', !!isPlaying);
+}
+
+/* ══════════════════════════════════════════════
+   AUDIO CONTROLS (delegated to pipeline2)
+   These are stubs — pipeline2/engine.js provides
+   the real implementation via window.SC_* hooks.
+══════════════════════════════════════════════ */
+let _vol = 70, _muted = false;
+
+function audioPlay()  {
+  if (currentAudio) {
+    if (currentAudio.paused) {
+      currentAudio.play().then(() => setAudioButtons(true)).catch(() => setAudioButtons(false));
+    } else {
+      currentAudio.pause();
+      setAudioButtons(false);
+    }
+    return;
+  }
+  const range = window._currentAudioRange;
+  const verses = window._currentAudioVerses || [];
+  if (range && verses.length && typeof playVoiceFromCdn === 'function') {
+    setAudioButtons(true);
+    playVoiceFromCdn(range, verses).finally(() => setAudioButtons(false));
+  }
+}
+function audioPause() {
+  if (currentAudio) currentAudio.pause();
+  setAudioButtons(false);
+}
+function audioStop()  {
+  /* Stop every possible audio handle — pipeline2 may hold its own reference */
+  if (typeof window.SC_stopAudio === 'function') window.SC_stopAudio();
+  if (typeof stopAudio === 'function') stopAudio();
+  try {
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+      currentAudio.src = '';
+      currentAudio = null;
+    }
+  } catch(e) {}
+  /* Blast all Audio elements the browser is aware of */
+  document.querySelectorAll('audio').forEach(a => {
+    try { a.pause(); a.currentTime = 0; a.src = ''; } catch(e) {}
+  });
+  if (typeof updateVerseIcon === 'function') updateVerseIcon(null, 'play');
+  setAudioButtons(false);
+  const np = document.getElementById('audio-np');
+  if (np) np.textContent = '—';
+}
+function volChange(delta) {
+  _vol = Math.max(0, Math.min(100, _vol + delta));
+  const label = document.getElementById('vol-label');
+  if (label) label.textContent = _vol + '%';
+  if (typeof setVolume === 'function') setVolume(_vol / 100);
+}
+function audioMute() {
+  _muted = !_muted;
+  const btn = document.getElementById('btn-mute');
+  if (btn) btn.classList.toggle('on', _muted);
+  if (typeof window.SC_setMute === 'function') window.SC_setMute(_muted);
+}
+
+/* ══════════════════════════════════════════════
+   SIDEBAR MOBILE TOGGLE
+══════════════════════════════════════════════ */
+function setSidebarOpen(isOpen) {
+  const sb = document.getElementById('sidebar');
+  if (!sb) return;
+  sb.classList.toggle('open', !!isOpen);
+  document.body.classList.toggle('controls-open', !!isOpen);
+  const btn = document.getElementById('mob-controls-btn');
+  if (btn) btn.classList.toggle('active', !!isOpen);
+  const closeRow = document.getElementById('sidebar-close-row');
+  if (closeRow) closeRow.style.display = isOpen ? 'flex' : 'none';
+}
+
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  if (!sb) return;
+  setSidebarOpen(!sb.classList.contains('open'));
+}
+
+function mobileAddAlarm() {
+  const sb = document.getElementById('sidebar');
+  if (sb && !sb.classList.contains('open')) {
+    setSidebarOpen(true);
+    const timeInput = document.getElementById('inp-pt');
+    if (timeInput) setTimeout(() => timeInput.focus(), 80);
+    return;
+  }
+  addAlarm();
+}
+
+/* ══════════════════════════════════════════════
+   BIBLE KEYBOARD
+══════════════════════════════════════════════ */
+const BOOKS = [
+  {id:'GEN',n:'Gen'},{id:'EXO',n:'Exo'},{id:'LEV',n:'Lev'},{id:'NUM',n:'Num'},
+  {id:'DEU',n:'Deu'},{id:'JOS',n:'Jos'},{id:'JDG',n:'Jdg'},{id:'RUT',n:'Rut'},
+  {id:'1SA',n:'1Sa'},{id:'2SA',n:'2Sa'},{id:'1KI',n:'1Ki'},{id:'2KI',n:'2Ki'},
+  {id:'1CH',n:'1Ch'},{id:'2CH',n:'2Ch'},{id:'EZR',n:'Ezr'},{id:'NEH',n:'Neh'},
+  {id:'EST',n:'Est'},{id:'JOB',n:'Job'},{id:'PSA',n:'Psa'},{id:'PRO',n:'Pro'},
+  {id:'ECC',n:'Ecc'},{id:'SNG',n:'Sng'},{id:'ISA',n:'Isa'},{id:'JER',n:'Jer'},
+  {id:'LAM',n:'Lam'},{id:'EZK',n:'Ezk'},{id:'DAN',n:'Dan'},{id:'HOS',n:'Hos'},
+  {id:'JOL',n:'Jol'},{id:'AMO',n:'Amo'},{id:'OBA',n:'Oba'},{id:'JON',n:'Jon'},
+  {id:'MIC',n:'Mic'},{id:'NAM',n:'Nam'},{id:'HAB',n:'Hab'},{id:'ZEP',n:'Zep'},
+  {id:'HAG',n:'Hag'},{id:'ZEC',n:'Zec'},{id:'MAL',n:'Mal'},
+  {id:'MAT',n:'Mat'},{id:'MRK',n:'Mrk'},{id:'LUK',n:'Luk'},{id:'JHN',n:'Jhn'},
+  {id:'ACT',n:'Act'},{id:'ROM',n:'Rom'},{id:'1CO',n:'1Co'},{id:'2CO',n:'2Co'},
+  {id:'GAL',n:'Gal'},{id:'EPH',n:'Eph'},{id:'PHP',n:'Php'},{id:'COL',n:'Col'},
+  {id:'1TH',n:'1Th'},{id:'2TH',n:'2Th'},{id:'1TI',n:'1Ti'},{id:'2TI',n:'2Ti'},
+  {id:'TIT',n:'Tit'},{id:'PHM',n:'Phm'},{id:'HEB',n:'Heb'},{id:'JAS',n:'Jas'},
+  {id:'1PE',n:'1Pe'},{id:'2PE',n:'2Pe'},{id:'1JN',n:'1Jn'},{id:'2JN',n:'2Jn'},
+  {id:'3JN',n:'3Jn'},{id:'JUD',n:'Jud'},{id:'REV',n:'Rev'}
+];
+
+// Full book names for display
+const BOOK_NAMES = {
+  GEN:'Genèse',EXO:'Exode',LEV:'Lévitique',NUM:'Nombres',DEU:'Deutéronome',
+  JOS:'Josué',JDG:'Juges',RUT:'Ruth','1SA':'1 Samuel','2SA':'2 Samuel',
+  '1KI':'1 Rois','2KI':'2 Rois','1CH':'1 Chroniques','2CH':'2 Chroniques',
+  EZR:'Esdras',NEH:'Néhémie',EST:'Esther',JOB:'Job',PSA:'Psaumes',PRO:'Proverbes',
+  ECC:'Ecclésiaste',SNG:'Cantique des cantiques',ISA:'Ésaïe',JER:'Jérémie',
+  LAM:'Lamentations',EZK:'Ézéchiel',DAN:'Daniel',HOS:'Osée',JOL:'Joël',
+  AMO:'Amos',OBA:'Abdias',JON:'Jonas',MIC:'Michée',NAM:'Nahum',HAB:'Habacuc',
+  ZEP:'Sophonie',HAG:'Aggée',ZEC:'Zacharie',MAL:'Malachie',
+  MAT:'Matthieu',MRK:'Marc',LUK:'Luc',JHN:'Jean',ACT:'Actes',ROM:'Romains',
+  '1CO':'1 Corinthiens','2CO':'2 Corinthiens',GAL:'Galates',EPH:'Éphésiens',
+  PHP:'Philippiens',COL:'Colossiens','1TH':'1 Thessaloniciens','2TH':'2 Thessaloniciens',
+  '1TI':'1 Timothée','2TI':'2 Timothée',TIT:'Tite',PHM:'Philémon',HEB:'Hébreux',
+  JAS:'Jacques','1PE':'1 Pierre','2PE':'2 Pierre','1JN':'1 Jean','2JN':'2 Jean',
+  '3JN':'3 Jean',JUD:'Jude',REV:'Apocalypse'
+};
+
+let _kbBook = '', _kbCh = null, _kbVs = null, _numStr = '', _numType = '';
+window.BOOKS = BOOKS;
+window.BOOK_NAMES = BOOK_NAMES;
+window.SELAH_KB = {
+  books: BOOKS,
+  bookNames: BOOK_NAMES,
+  setSelection({ bookId, chapter, verse }) {
+    _kbBook = bookId || '';
+    _kbCh = chapter || null;
+    _kbVs = verse || null;
+  },
+  getSelection() {
+    return { bookId: _kbBook, chapter: _kbCh, verse: _kbVs };
+  }
+};
+
+function openKb() {
+  /* Close sidebar first so it doesn't sit behind the keyboard sheet */
+  const sb = document.getElementById('sidebar');
+  if (sb && sb.classList.contains('open')) {
+    setSidebarOpen(false);
+  }
+  document.getElementById('kb-modal').classList.add('open');
+  renderBooks();
+}
+function closeKb() { document.getElementById('kb-modal').classList.remove('open'); }
+function handleKbOutside(e) { if (e.target.id === 'kb-modal') closeKb(); }
+
+function setCrumbs(t) { document.getElementById('kb-crumbs').textContent = t; }
+
+function renderBooks() {
+  _kbBook = ''; _kbCh = null; _kbVs = null;
+  setCrumbs('📚 Select Book');
+  const g = document.getElementById('kb-grid');
+  g.innerHTML = '';
+  document.getElementById('num-preview').style.display = 'none';
+  document.getElementById('num-pad').style.display     = 'none';
+  document.getElementById('mode-bar').style.display    = 'none';
+
+  BOOKS.forEach(b => {
+    const btn = document.createElement('div');
+    btn.className   = 'kb-btn';
+    btn.textContent = b.n;
+    btn.title       = BOOK_NAMES[b.id] || b.id;
+    btn.onclick     = () => selectBook(b.id);
+    g.appendChild(btn);
+  });
+}
+
+function selectBook(id) {
+  _kbBook = id;
+  setCrumbs((BOOK_NAMES[id] || id) + ' ›');
+  renderNumPad('chapter');
+}
+
+function renderNumPad(type) {
+  _numType = type;
+  _numStr  = '';
+  document.getElementById('kb-grid').innerHTML = '';
+  const prev = document.getElementById('num-preview');
+  const pad  = document.getElementById('num-pad');
+  const mbar = document.getElementById('mode-bar');
+  prev.style.display = '';
+  pad.style.display  = '';
+  mbar.style.display = 'none';
+  prev.textContent   = '_';
+
+  setCrumbs(type === 'chapter'
+    ? (BOOK_NAMES[_kbBook] || _kbBook) + ' › Chapter'
+    : (BOOK_NAMES[_kbBook] || _kbBook) + ' ' + _kbCh + ' › Verse');
+
+  pad.innerHTML = '';
+  for (let i = 1; i <= 9; i++) {
+    const b = document.createElement('div');
+    b.className = 'num-btn'; b.textContent = i;
+    b.onclick = () => { _numStr += i; prev.textContent = _numStr; };
+    pad.appendChild(b);
+  }
+
+  const back = document.createElement('div');
+  back.className = 'num-btn del'; back.textContent = '⌫';
+  back.onclick = () => { _numStr = _numStr.slice(0,-1); prev.textContent = _numStr || '_'; };
+  pad.appendChild(back);
+
+  const zero = document.createElement('div');
+  zero.className = 'num-btn'; zero.textContent = '0';
+  zero.onclick = () => { if (_numStr.length) { _numStr += '0'; prev.textContent = _numStr; } };
+  pad.appendChild(zero);
+
+  const next = document.createElement('div');
+  next.className = 'num-btn confirm'; next.textContent = '➔';
+  next.onclick = () => {
+    const v = parseInt(_numStr, 10);
+    if (isNaN(v) || v < 1) return;
+    if (type === 'chapter') {
+      _kbCh = v;
+      renderModeBar();
+    } else {
+      _kbVs = v;
+      renderModeBar();
+    }
+  };
+  pad.appendChild(next);
+}
+
+function renderModeBar() {
+  document.getElementById('num-preview').style.display = 'none';
+  document.getElementById('num-pad').style.display     = 'none';
+  const mbar = document.getElementById('mode-bar');
+  mbar.style.display = '';
+  mbar.innerHTML = '';
+
+  const hasVerse = (_kbVs !== null);
+  const label = hasVerse
+    ? (BOOK_NAMES[_kbBook]||_kbBook) + ' ' + _kbCh + ':' + _kbVs
+    : (BOOK_NAMES[_kbBook]||_kbBook) + ' ' + _kbCh;
+
+  setCrumbs(label + ' › Display');
+
+  if (!hasVerse) {
+    // came from chapter → offer to pick verse or show whole chapter/book
+    addModeBtn(mbar, 'Pick a Verse', () => renderNumPad('verse'));
+  }
+
+  if (hasVerse) {
+    addModeBtn(mbar, '📖 This Verse',   () => fetchAndDisplay('verse'));
+  }
+  addModeBtn(mbar, '📜 Whole Chapter', () => fetchAndDisplay('chapter'));
+  addModeBtn(mbar, '📚 Whole Book',    () => fetchAndDisplay('book'));
+  addModeBtn(mbar, '↺ Back to Books',  renderBooks);
+}
+
+function addModeBtn(parent, label, fn) {
+  const b = document.createElement('button');
+  b.className = 'mode-btn'; b.textContent = label;
+  b.onclick = fn;
+  parent.appendChild(b);
+}
+
+/* ══════════════════════════════════════════════
+   FETCH + DISPLAY  (offline LSG JSON)
+══════════════════════════════════════════════ */
+async function getOfflineBibleData(jsonPath) {
+  window.bibleCache = window.bibleCache || {};
+  if ((Array.isArray(window.bibleData) || (window.bibleData && typeof window.bibleData === 'object')) && window.bibleDataPath === jsonPath) return window.bibleData;
+  if (window.bibleCache[jsonPath]) return window.bibleCache[jsonPath];
+  const data = (typeof fetchJSON === 'function')
+    ? await fetchJSON(jsonPath)
+    : await fetch(jsonPath).then(res => {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      });
+  window.bibleCache[jsonPath] = data;
+  window.bibleData = data;
+  window.bibleDataPath = jsonPath;
+  return data;
+}
+
+async function fetchAndDisplay(mode) {
+  closeKb();
+  const card   = document.getElementById('display-card');
+  const refEl  = document.getElementById('disp-ref');
+  const bodyEl = document.getElementById('disp-body');
+  if (!card || !refEl || !bodyEl) return;
+
+  card.classList.add('visible');
+  refEl.textContent  = 'Loading...';
+  bodyEl.textContent = '';
+  bodyEl.className   = 'multiverse';
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const activeVersion = 'LSG';
+  const jsonPath = '/data/bibles/lsg.json';
+  const bookName = BOOK_NAMES[_kbBook] || _kbBook;
+  const chStart  = parseInt(_kbCh, 10) || 1;
+  const vsStart  = mode === 'verse' ? (parseInt(_kbVs, 10) || 1) : 1;
+  const chEnd    = mode === 'book' ? ((BIBLE_CAPS[bookName] && BIBLE_CAPS[bookName].ch) || chStart) : chStart;
+  const vsEnd    = mode === 'verse' ? vsStart : 999;
+  const ref      = mode === 'verse' ? `${bookName} ${chStart}:${vsStart}`
+                 : mode === 'chapter' ? `${bookName} ${chStart}`
+                 : bookName;
+
+  try {
+    const bibleData = await getOfflineBibleData(jsonPath);
+    const verses = extractVerses(bibleData, chStart, vsStart, chEnd, vsEnd, bookName);
+    window._currentAudioRange = { book: bookName, bible_version: activeVersion, chapter_start: chStart, verse_start: vsStart, chapter_end: chEnd, verse_end: vsEnd };
+    window._currentAudioVerses = verses;
+    renderDisplayCard(ref, verses, mode);
+    /* Audio does NOT auto-play here — user taps ▶ or a verse icon explicitly */
+  } catch (err) {
+    refEl.textContent  = 'Error';
+    bodyEl.textContent = 'Could not load scripture from local Bible data. (' + err.message + ')';
+  }
+}
+function getBookFromRef(ref) {
+  const match = String(ref || '').match(/^(.+?)\s+\d/);
+  return match ? match[1].trim() : (BOOK_NAMES[_kbBook] || _kbBook || String(ref || '').trim());
+}
+function createVerseAudioLine(book, verseData, fallbackVerse) {
+  const text = String(verseData.text || verseData.content || verseData || '');
+  const wrap = document.createElement('span');
+  wrap.className = 'verse-text';
+  wrap.appendChild(document.createTextNode(text + ' '));
+  return wrap;
+}
+function renderDisplayCard(ref, data, mode) {
+  const refEl  = document.getElementById('disp-ref');
+  const bodyEl = document.getElementById('disp-body');
+  if (!refEl || !bodyEl) return;
+  refEl.textContent = ref;
+
+  let verses = [];
+  if (Array.isArray(data)) {
+    verses = data;
+  } else if (data.verses) {
+    verses = data.verses;
+  } else if (data.text) {
+    verses = [{ chapter: _kbCh || 1, verse: _kbVs || 1, text: data.text }];
+  }
+
+  const book = window._currentAudioRange?.book || getBookFromRef(ref);
+  bodyEl.innerHTML = '';
+  bodyEl.className = (mode === 'verse' && verses.length === 1) ? '' : 'multiverse';
+  verses.forEach((v, idx) => {
+    if (!(mode === 'verse' && verses.length === 1)) {
+      const num = document.createElement('sup');
+      num.className = 'verse-num';
+      num.textContent = (v.verse || v.verseNumber || idx + 1) + ' ';
+      bodyEl.appendChild(num);
+    }
+    bodyEl.appendChild(createVerseAudioLine(book, v, idx + 1));
+    bodyEl.appendChild(document.createTextNode(' '));
+  });
+
+  window._currentRef  = ref;
+  window._currentText = verses.map(v => v.text || v.content || v).join(' ');
+  window._currentAudioVerses = verses;
+  const np = document.getElementById('audio-np');
+  if (np) np.textContent = '♪ ' + ref;
+  if (typeof saveReadDay === 'function') saveReadDay();
+}
+
+/* ══════════════════════════════════════════════
+   PRAYER ALARMS
+══════════════════════════════════════════════ */
+let _alarms = [];
+function addAlarm() {
+  const t = document.getElementById('inp-pt').value;
+  const l = document.getElementById('inp-pl').value.trim() || 'Prayer Time';
+  if (!t) return;
+  _alarms.push({ time: t, label: l, id: Date.now() });
+  document.getElementById('inp-pt').value = '';
+  document.getElementById('inp-pl').value = '';
+  renderAlarms();
+}
+function removeAlarm(id) {
+  _alarms = _alarms.filter(a => a.id !== id);
+  renderAlarms();
+}
+function renderAlarms() {
+  const list = document.getElementById('alarm-list');
+  list.innerHTML = '';
+  _alarms.forEach(a => {
+    const row = document.createElement('div');
+    row.className = 'alarm-row';
+    row.innerHTML = `<span class="al-t">${a.time}</span><span class="al-l">${a.label}</span>`;
+    const del = document.createElement('button');
+    del.className = 'alarm-del'; del.textContent = '×';
+    del.onclick = () => removeAlarm(a.id);
+    row.appendChild(del);
+    list.appendChild(row);
+  });
+}
+
+/* Prayer alarm checker */
+(function checkAlarms() {
+  function tick() {
+    if (!_alarms.length) { setTimeout(tick, 10000); return; }
+    const now  = new Date();
+    const hhmm = now.toTimeString().slice(0, 5);
+    const hh   = now.getHours(), mm = now.getMinutes();
+    // 2-min warning
+    _alarms.forEach(a => {
+      const [ah, am] = a.time.split(':').map(Number);
+      const diff = (ah * 60 + am) - (hh * 60 + mm);
+      if (diff === 2) {
+        if (typeof window.SC_speak === 'function') {
+          window.SC_speak(`${a.label} begins in 2 minutes.`);
+        }
+      }
+      if (diff === 0 || (diff <= 0 && diff > -3)) {
+        // show prayer alert
+        document.getElementById('prayer-alert').style.display = '';
+        document.getElementById('prayer-banner').style.display = '';
+        document.getElementById('prayer-banner').textContent = '🙏 ' + a.label;
+        setTimeout(() => {
+          document.getElementById('prayer-alert').style.display = 'none';
+          document.getElementById('prayer-banner').style.display = 'none';
+        }, 3 * 60 * 1000);
+      }
+    });
+    setTimeout(tick, 30000);
+  }
+  tick();
+})();
+
+/* ══════════════════════════════════════════════
+   EXPOSE HOOKS FOR pipeline2/engine.js
+══════════════════════════════════════════════ */
+window.SC_getCurrentRef  = () => window._currentRef  || '';
+window.SC_getCurrentText = () => window._currentText || '';
+</script>
+<script src="js/pipeline2/kb-navigator.js?v=20260623-phone1"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => console.warn('Service worker registration failed:', err));
+  });
+}
+</script>
+</body>
+</html>
