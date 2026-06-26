@@ -1488,14 +1488,21 @@ function loadVOTD() {
   };
   const np = document.getElementById('audio-np');
   if (np) np.textContent = '\u266A ' + verse.ref;
+  showAudioBar();
 }
 loadVOTD();
 
 /* ══════════════════════════════════════════════
    AUDIO BAR TOGGLE
 ══════════════════════════════════════════════ */
-let _audioBarVisible = false;
+var _audioBarVisible = false;
+function showAudioBar() {
+  const bar = document.getElementById('audio-bar');
+  if (bar) bar.classList.add('visible');
+  _audioBarVisible = true;
+}
 function toggleAudioBar() {
+  showAudioBar();
   audioPlay();
 }
 function setAudioButtons(isPlaying) {
@@ -1506,6 +1513,7 @@ function setAudioButtons(isPlaying) {
   if (playBtn) playBtn.style.display = isPlaying ? 'none' : '';
   if (pauseBtn) pauseBtn.style.display = isPlaying ? '' : 'none';
   if (np && window._currentRef) np.textContent = '♪ ' + window._currentRef;
+  showAudioBar();
   if (mobileBtn) mobileBtn.classList.toggle('active', !!isPlaying);
 }
 
@@ -1882,6 +1890,7 @@ function renderDisplayCard(ref, data, mode) {
   window._currentAudioVerses = verses;
   const np = document.getElementById('audio-np');
   if (np) np.textContent = '♪ ' + ref;
+  showAudioBar();
   if (typeof saveReadDay === 'function') saveReadDay();
 }
 
